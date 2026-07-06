@@ -42,6 +42,7 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
     // Timing
     private var slideStartTime: Double = 0
     private var totalTime:      Double = 0   // driven by draw()
+    private var slideAnimationStartTime: Double = 0  // when the current slide's Ken Burns animation actually started
 
     init?(mtkView: MTKView) {
         guard let dev   = MTLCreateSystemDefaultDevice() else { return nil }
@@ -127,6 +128,7 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
                 self.slides         = loaded
                 self.currentIndex   = 0
                 self.slideStartTime = self.totalTime
+                self.slideAnimationStartTime = self.totalTime
                 print("Loaded \(loaded.count) photos.")
             }
         }
@@ -227,10 +229,12 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
         if elapsed >= slideDuration {
             currentIndex    = (currentIndex + 1) % slides.count
             slideStartTime  = totalTime
+            // The new current slide's animation actually started during the crossfade
+            slideAnimationStartTime = totalTime - crossfadeDuration
             return
         }
 
-        let t              = Float(min(elapsed / slideDuration, 1.0))
+        let t              = Float(min((totalTime - slideAnimationStartTime) / slideDuration, 1.0))
         let crossfadeStart = slideDuration - crossfadeDuration
         let fadeProgress   = Float(min(max((elapsed - crossfadeStart) / crossfadeDuration, 0.0), 1.0))
         let nextIndex      = (currentIndex + 1) % slides.count
@@ -260,12 +264,8 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
         }
 
         if fadeProgress > 0 && nextIndex != currentIndex {
-            // Drive the incoming slide's Ken Burns from 0→(crossfadeDuration/slideDuration)
-            // over the crossfade window, so its t=0 matches what it will be at the moment
-            // it becomes currentIndex — no jump on transition.
-            let nextT = Float((elapsed - crossfadeStart) / slideDuration)
-            // TONYSCHR: debug the cross-fade glitch.
-            // print("CrossFade: t: \(t), nextT: \(nextT), elapsed: \(elapsed), start: \(crossfadeStart), duration: \(slideDuration)")
+            // The next slide starts its animation at the beginning of the crossfade
+            let nextT = Float((totalTime - (slideStartTime + crossfadeStart)) / slideDuration)
             drawSlide(slides[nextIndex], alpha: fadeProgress, t: nextT)
         }
         

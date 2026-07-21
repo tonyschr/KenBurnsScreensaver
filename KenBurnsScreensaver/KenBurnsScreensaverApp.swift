@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct KenBurnsScreensaverApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var settings = AppSettings()
     
     var body: some Scene {

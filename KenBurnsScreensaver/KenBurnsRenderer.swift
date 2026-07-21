@@ -26,8 +26,9 @@ struct Slide {
 final class KenBurnsRenderer: NSObject, MTKViewDelegate {
 
     // Tunables
-    var slideDuration:     Double = 6.0   // seconds each photo stays
-    var crossfadeDuration: Double = 1.5   // seconds of overlap
+//    var slideDuration:     Double = 6.0   // seconds each photo stays
+//    var crossfadeDuration: Double = 1.5   // seconds of overlap
+    private var settings: AppSettings
 
     // Metal objects
     private let device:        MTLDevice
@@ -44,7 +45,7 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
     private var totalTime:      Double = 0   // driven by draw()
     private var slideAnimationStartTime: Double = 0  // when the current slide's Ken Burns animation actually started
 
-    init?(mtkView: MTKView) {
+    init?(settings: AppSettings, mtkView: MTKView) {
         guard let dev   = MTLCreateSystemDefaultDevice() else { return nil }
         guard let queue = dev.makeCommandQueue()         else { return nil }
         device       = dev
@@ -53,6 +54,11 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
         mtkView.clearColor       = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.framebufferOnly  = false
+        
+        // TONY: Init from settings
+        // TODO: Ratings filtering
+        self.settings = settings
+        
         super.init()
         buildPipeline(mtkView: mtkView)
         buildFullscreenQuad()
@@ -226,17 +232,17 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
         let elapsed = totalTime - slideStartTime
 
         // Advance slide index when the full duration (including crossfade) is done
-        if elapsed >= slideDuration {
+        if elapsed >= settings.slideDuration {
             currentIndex    = (currentIndex + 1) % slides.count
             slideStartTime  = totalTime
             // The new current slide's animation actually started during the crossfade
-            slideAnimationStartTime = totalTime - crossfadeDuration
+            slideAnimationStartTime = totalTime - settings.fadeDuration
             return
         }
 
-        let t              = Float(min((totalTime - slideAnimationStartTime) / slideDuration, 1.0))
-        let crossfadeStart = slideDuration - crossfadeDuration
-        let fadeProgress   = Float(min(max((elapsed - crossfadeStart) / crossfadeDuration, 0.0), 1.0))
+        let t              = Float(min((totalTime - slideAnimationStartTime) / settings.slideDuration, 1.0))
+        let crossfadeStart = settings.slideDuration - settings.fadeDuration
+        let fadeProgress   = Float(min(max((elapsed - crossfadeStart) / settings.fadeDuration, 0.0), 1.0))
         let nextIndex      = (currentIndex + 1) % slides.count
 
         // Snapshot the drawable size once per frame so both slides use the same value
@@ -265,7 +271,7 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
 
         if fadeProgress > 0 && nextIndex != currentIndex {
             // The next slide starts its animation at the beginning of the crossfade
-            let nextT = Float((totalTime - (slideStartTime + crossfadeStart)) / slideDuration)
+            let nextT = Float((totalTime - (slideStartTime + crossfadeStart)) / settings.slideDuration)
             drawSlide(slides[nextIndex], alpha: fadeProgress, t: nextT)
         }
         

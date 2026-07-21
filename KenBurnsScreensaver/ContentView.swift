@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 // MARK: – NSViewRepresentable bridge
 struct MetalKenBurnsView: NSViewRepresentable {
+    @Binding var settings: AppSettings
     @Binding var photoFolderURL: URL?
 
     func makeCoordinator() -> KenBurnsRenderer? {
@@ -11,7 +12,7 @@ struct MetalKenBurnsView: NSViewRepresentable {
         mtkView.preferredFramesPerSecond = 60
         mtkView.isPaused = false
         mtkView.enableSetNeedsDisplay = false
-        return KenBurnsRenderer(mtkView: mtkView)
+        return KenBurnsRenderer(settings: settings, mtkView: mtkView)
     }
 
     func makeNSView(context: Context) -> MTKView {
@@ -20,7 +21,7 @@ struct MetalKenBurnsView: NSViewRepresentable {
         mtkView.isPaused = false
         mtkView.enableSetNeedsDisplay = false
 
-        if let renderer = KenBurnsRenderer(mtkView: mtkView) {
+        if let renderer = KenBurnsRenderer(settings: settings, mtkView: mtkView) {
             mtkView.delegate = renderer
             objc_setAssociatedObject(mtkView, &AssociatedKeys.renderer, renderer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
 
@@ -58,8 +59,11 @@ struct ContentView: View {
     @State private var photoFolderURL: URL? = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
     @State private var isPickerPresented = false
 
+    @Environment(AppSettings.self)
+    private var settings
+    
     var body: some View {
-        MetalKenBurnsView(photoFolderURL: $photoFolderURL)
+        MetalKenBurnsView(settings: Binding.constant(settings), photoFolderURL: $photoFolderURL)
             .ignoresSafeArea()
             .fileImporter(
                 isPresented: $isPickerPresented,

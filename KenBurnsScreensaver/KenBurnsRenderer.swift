@@ -48,17 +48,16 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
     init?(settings: AppSettings, mtkView: MTKView) {
         guard let dev   = MTLCreateSystemDefaultDevice() else { return nil }
         guard let queue = dev.makeCommandQueue()         else { return nil }
+
+        self.settings = settings
+
         device       = dev
         commandQueue = queue
         mtkView.device           = dev
         mtkView.clearColor       = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.framebufferOnly  = false
-        
-        // TONY: Init from settings
-        // TODO: Ratings filtering
-        self.settings = settings
-        
+                
         super.init()
         buildPipeline(mtkView: mtkView)
         buildFullscreenQuad()
@@ -110,7 +109,19 @@ final class KenBurnsRenderer: NSObject, MTKViewDelegate {
 
         var urls: [URL] = []
         for case let url as URL in enumerator {
-            if exts.contains(url.pathExtension.lowercased()) { urls.append(url) }
+            if exts.contains(url.pathExtension.lowercased()) {
+                var shouldAdd = false
+                if let rating = try? XMPRating.read(from: url) {
+                    shouldAdd = rating >= settings.minRating && rating <= settings.maxRating
+                } else if settings.minRating == 0 {
+                    // Unrated is treated as 0.
+                    shouldAdd = true
+                }
+                
+                if shouldAdd {
+                    urls.append(url)
+                }
+            }
         }
         urls.shuffle()
 
